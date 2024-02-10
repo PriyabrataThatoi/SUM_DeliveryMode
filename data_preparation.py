@@ -5,6 +5,7 @@ from functools import reduce
 import pandas as pd
 import re
 import glob
+from datetime import date
 
 # Define the path to your 'results' folder
 folder_path = os.getcwd()
@@ -44,7 +45,7 @@ def extract_keyword(df,col,keyword) :
     keyword_df = keyword_df.drop_duplicates()
 
     # Create a DataFrame with unique 'SL.NO' from the original DataFrame
-    sl_no_df = df_[['SL.NO']].drop_duplicates()
+    sl_no_df = df[['SL.NO']].drop_duplicates()
 
     # Merge this with the extracted weight data
     # Use an outer join to ensure all 'SL.NO' are included, even if there's no corresponding 'weight'
@@ -100,7 +101,7 @@ def f_global_data_pref(filename,columns):
     df_3['LMP']=df_3['LMP'].str.split('-').str[1]
 
     df_4 = df_[['SL.NO','AGE']].drop_duplicates()
-    df_4 = df_4.query("AGE != 'NaN'")
+    df_4 = df_4[~df_4.AGE.isna()]
 
     print(df_4.head())
     # df_4= extract_keyword(df_,'EDD/GA','GA- ')
@@ -146,7 +147,11 @@ def f_global_data_pref(filename,columns):
     df_10 = gw_df.drop_duplicates()
 
     # create target variable
+    # target_df = df_[~((df_['METHOD-VD/CS'].isnull()) | (df_['METHOD-VD/CS']=='nan'))][['SL.NO','METHOD-VD/CS']].drop_duplicates()
+    # target_df['METHOD-VD/CS']= np.where((target_df['METHOD-VD/CS']!='LSCS'),'NVD',target_df['METHOD-VD/CS'])
     target_df = df_[~((df_['METHOD-VD/CS'].isnull()) | (df_['METHOD-VD/CS']=='nan'))][['SL.NO','METHOD-VD/CS']].drop_duplicates()
+    target_df['METHOD-VD/CS']= np.where((target_df['METHOD-VD/CS']!='LSCS'),'NVD',target_df['METHOD-VD/CS'])
+    target_df = target_df.dropna().drop_duplicates()
 
     # merge all dataframes:
     dataset=[df_1,df_2,df_3,df_4,df_5,df_6,df_7,df_8,df_9,df_10,target_df]
@@ -232,7 +237,15 @@ for filename in xlsx_filenames:
     dataframes.append(temp)
 
 df_delivery = pd.concat(dataframes,ignore_index=True)
+# df_delivery = df_delivery.drop_duplicates()
 df_delivery = df_delivery.reset_index().rename(columns={'index':'patient_id'}).drop(columns='sl_no')
+df_delivery = df_delivery[df_delivery.patient_id>0]
+print(df_delivery.shape)
+# df_delivery['delivery_mode'][df_delivery.delivery_mode=='VACCUME'] = 'NVD'
+# df_delivery = df_delivery.drop_duplicates()
 
+
+str_date = str(date.today())
 print('output dataset shape: ',df_delivery.shape)
-df_delivery.to_csv('df_delivery_mode_02_24.csv',index=False)
+print(folder_path+'/res/'+'df_delivery_mode_'+str_date+'.csv')
+df_delivery.to_csv(folder_path+'/res'+'df_delivery_mode_'+str_date+'.csv',index=False)
