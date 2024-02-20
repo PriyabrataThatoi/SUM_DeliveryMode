@@ -87,6 +87,9 @@ df['hb']=df['hb'].astype(float)
 mean_hb = df['hb'].mean()
 df['hb'].fillna(mean_hb, inplace=True)
 
+## Replace missing ga_weeks with mean
+df.ga_weeks.fillna(round(df[~df.ga_weeks.isna()].ga_weeks.astype(int).mean()))
+
 
 ##Looking into age and can be imputed ##TBD
 #Replace for bp
