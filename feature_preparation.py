@@ -110,72 +110,133 @@ df.fetus_type = df.fetus_type.fillna('SINGLE')
 df['bmi']=((df['kg_upd'])/(df['height_upd']*df['height_upd']))
 
 df['Placenta']=df['Placenta'].astype(str)
-df['category']=df['Placenta']
 
 
-# Remove leading and trailing spaces
-df['category'] = df['category'].str.strip()
+###Categories merged
+# FUNDAL: FUNDAL FUNDAL LEFT ANTERIOR FUNDAL-POSTERIOR FUNDAL-POSTERIOR .' FUNDAL-ANTERIOR FUNDAL ANTERIOR FUNDAL . ' FUNDAL . '
 
-# Remove punctuation marks
-df['category'] = df['category'].str.replace(r'[^\w\s]', '')
+# FUNDO-ANTERIOR:FUNDO-ANTERIOR FUNDO-ANTERIOR . ' FUNDO-ANTERIOR .' FUNDO-ANTERIOR . CERVIX-3.2 CM FUNDO- ANTERIOR . ' FUNDO- ANTERIOR FUNDOANT IN LOCATION .' FUNDO-ANTERIOR RIGHT LATERAL EXTENSION. NOT LOW LYING .' FUNDO-ANTERIOR NOT LOW LYING
 
-# Convert text to lowercase
-df['category'] = df['category'].str.lower()
+# POSTERIOR:POSTERIOR POSTERIOR NOT LOW LYING POSTERIOR FUNDAL . A.F.I- 11.3 CM POSTERIOR RTLATERAL POSTERIOR LOW LYING POSTERIOR . ' POSTERIOR . (USG IN L.R )' POSTERIOR LEFT LATERAL POSTERIOR & FUNDAL POSTERIOR-FUNDAL . '
 
-# Map similar categories to standardized categories
-standard_categories = {
-    'fundal': ['fundal', 'fundal anterior', 'fundal posterior', 'fundic', 'fundant in location',
-               'fundal left anterior', 'fundal posterior with left lateral', 'fundal right lateral'],
-    'anterior': ['anterior', 'fundoanterior cervix32 cm', 'anterior fundal', 'anterior fundic',
-                 'anterior to the right not low lying', 'anterior and left lateral', 'anterior right fundal',
-                 'anterior left lateral'],
-    'posterior': ['posterior', 'posterior not low lying', 'posterior fundal afi113 cm', 'posterior rtlateral',
-                  'posterior low lying', 'posterior left lateral', 'posteriorfundal', 'posterior fundal afi 10 cm',
-                  'posterior and fundal', 'posterolaterally'],
-    'left lateral': ['left lateral', 'left fundal', 'left anterior', 'left', 'left lateral posterior'],
-    'right lateral': ['right lateral', 'right anterior', 'right']
+# ANTERIOR:ANTERIOR ANTERIOR . ANTERIOR . ' ANTERIOR . A.F.I- 10 CM ANTERIOR LEFT LATERAL ANTERIOR RIGHT FUNDAL ANTERIOR FUNDAL ANTERIOR FUNDAL . GARDE-3 . ' ANTERIOR TO THE RIGHT NOT LOW LYING . ' ANTERIOR AND LEFT LATERAL ANTERIOR LEFT LATERAL . ' ANTERIOR . '
+
+# NAN:nan
+
+# LEFT:LEFT LEFT LATERAL LEFT FUNDAL
+
+# RIGHT:RIGHT RIGHT ANTERIOR RIGHT LATERAL RIGHT LATERAL POSTERIOR (SINGLE)- RIGHT LATERAL '
+
+# OTHERS:NOT LOW LYINY POSTERIOR NATERIOR FUNDIC FUNDO-POSTERIOR FUNDO-POSTERIOR . ' FUNDO-'' FUNDO- POSTERIOR FUNDIC POSTERIOR FUNDIC PARTLY ANTERIOR FUNDIC RIGHT LATERAL FUNDIC-PARTLY ANTERIOR PARTLY' FUNDP-POSTERIOR SEPARATION LATERAL FUNDO POSTERIOR WITH LEFT LATERAL LATERLAL POSTERIOR FUN-ANTERIOR POSTEROLATERALLY
+
+
+## Code to merge categories in placenta and perform one hot encoding
+mapping = {
+    'FUNDAL': 'FUNDAL',
+    'FUNDO-ANTERIOR': 'FUNDO-ANTERIOR',
+    'POSTERIOR': 'POSTERIOR',
+    'ANTERIOR': 'ANTERIOR',
+    'nan': 'nan',
+    'LEFT': 'LEFT',
+    'RIGHT': 'RIGHT'
 }
 
-# Function to map categories
-def map_categories(category):
-    for standard_category, variants in standard_categories.items():
-        if category in variants:
-            return standard_category
-    return category
+# Create new columns based on mapping
+for key, value in mapping.items():
+    df[value] = df['Placenta'].apply(lambda x: 1 if key in x else 0)
 
-# Apply mapping function
-df['category'] = df['category'].apply(map_categories)
+    
+# Define the pattern to match "AFI" followed by 10 characters
+pattern = r'A.F(.{13})'
+
+# Function to extract the matched strings
+def extract_matched_strings(text):
+    match = re.search(pattern, text)
+    if match:
+        return match.group(1)  # Extract the 10 characters after "CER"
+    else:
+        return None
+
+# Apply the function to the DataFrame column
+df['Extracted_String_A.F.I'] = df['usg'].apply(extract_matched_strings)
+df['Extracted_String_A.F.I']=df['Extracted_String_A.F.I'].astype(str)
+
+df['A.F.I_upd']=df['A.F.I'].fillna(df['Extracted_String_A.F.I'])
+
+# Regular expression to extract numerical values
+pattern = r'(\d+\.?\d*)'
+
+# Function to extract numerical values
+def extract_numerical_values(text):
+    matches = re.findall(pattern, str(text))
+    return ' '.join(matches)
+
+# Apply the function to the DataFrame column
+df['A.F.I_numerical'] = df['A.F.I_upd'].apply(extract_numerical_values)
+
+df['A.F.I_numerical']=df['A.F.I_numerical'].replace({'176 3 6.4':'6.4','14.0 4.2':'14.0','9 10':'9','10.3 3 2.8':'10.3',
+                                                    '13 14':'13',
+                                                    '2306 34':'ADEQUATE',
+                                                    '112':'11.2','163':'16.3'})
 
 
 
+# Define the pattern to match "CER" followed by 10 characters
+pattern = r'CERVIX-(.{5})'
 
-# Map similar categories to standardized categories
-category_mapping = {
-    'fundal': ['fundal'],
-    'fundoanterior': ['fundoanterior', 'fundoposteriorwithleftlateral', 'fundoanteriorcervix32cm', 
-                      'fundoanteriorrightlateralextensionnotlowlying', 'fundoanteriornotlowlying', 
-                      'fundanterior'],
-    'posterior': ['posterior', 'posteriorfundalafi113cm', 'posteriorusginlr', 'posteriorfundal', 
-                  'notlowlyinyposterior', 'rightlateralposterior', 'laterlalposterior', 'fundpposterior'],
-    'anterior': ['anterior', 'anteriorfundal', 'anteriorfundic', 'anteriorafi10cm', 'anteriortotherightnotlowlying', 
-                 'singlerightlateral', 'anteriorleftlateral'],
-    'leftlateral': ['leftlateral'],
-    'rightlateral': ['rightlateral', 'fundicrightlateral'],
-    'lateral': ['lateral'],
-    'separation': ['separation'],
-    'nan': ['nan', ''],
-    'other': []  # Placeholder for any unmatched categories
-}
+# Function to extract the matched strings
+def extract_matched_strings(text):
+    match = re.search(pattern, text)
+    if match:
+        return match.group(1)  # Extract the 10 characters after "CER"
+    else:
+        return None
 
-# Function to map categories
-def map_categories(category):
-    for standard_category, variants in category_mapping.items():
-        if category in variants:
-            return standard_category
-    return 'other'
+# Apply the function to the DataFrame column
+df['Extracted_String_cervix'] = df['usg'].apply(extract_matched_strings)
+df['Extracted_String_cervix']=df['Extracted_String_cervix'].astype(str)
 
-# Apply mapping function
-df['category_placenta'] = df['category'].apply(map_categories)
+df['cervix_upd']=df['Cervix_Length'].fillna(df['Extracted_String_cervix'])
+
+# Regular expression to extract numerical values
+pattern = r'(\d+\.?\d*)'
+
+# Function to extract numerical values
+def extract_numerical_values(text):
+    matches = re.findall(pattern, str(text))
+    return ' '.join(matches)
+
+# # Apply the function to the DataFrame column
+df['cervix_numerical'] = df['cervix_upd'].apply(extract_numerical_values)
+
+df['cervix_numerical']=df['cervix_numerical'].replace({'2838 12':'normal','32 1719 251 12.3':'32',
+                                                      '35':'3.5','41':'4.1','45':'4.5','36':'3.6','34':'3.4',
+                                                      '33':'3.3','29':'2.9','32':'3.2','30':'3.0'})
+
+
+
+## Code to update FHR
+
+
+pattern = r'FHR-(\d+)'
+import re
+# Function to extract FHR value from a string
+def extract_fhr(column_value):
+    # Convert non-string values to string
+    if not isinstance(column_value, str):
+        column_value = str(column_value)
+    fhr_match = re.search(pattern, column_value)
+    if fhr_match:
+        return fhr_match.group(1)
+    else:
+        return None
+
+# Apply the function to the column
+df['new_fhr']=df['FHR'].apply(extract_fhr)
+df['fhr_upd'] = df['new_fhr'].fillna(df['FHR'])
+
+
+df.drop(columns=[ 'nan','Extracted_String_A.F.I', 'A.F.I_upd','Extracted_String_cervix', 'cervix_upd','new_fhr'],inplace=True)
 
 #%%
 df.head()
