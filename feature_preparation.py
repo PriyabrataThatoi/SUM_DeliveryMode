@@ -3,6 +3,8 @@ import pandas as pd
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', 100)
 import numpy as np
+import random
+import re
 
 df = pd.read_csv('resdf_delivery_mode_2024-02-10.csv')
 
@@ -238,5 +240,72 @@ df['fhr_upd'] = df['new_fhr'].fillna(df['FHR'])
 
 df.drop(columns=[ 'nan','Extracted_String_A.F.I', 'A.F.I_upd','Extracted_String_cervix', 'cervix_upd','new_fhr'],inplace=True)
 
-#%%
-df.head()
+def keyword_extract(df,column,keyword):
+    keywords_pattern = r'\b(' + keyword + r')\b'
+
+    df['keywords'] = df[column].str.extract(keywords_pattern, expand=False)
+    return df['keywords']
+
+
+for i in ['OLIGOHYDRAMNIOUS',"OLIGO","FETAL DISTRESS","DISTRESS","FETAL","BREECH",'CEPHALIC','PREVIA',
+         'ECLAMPSIA' , 'PPROM', 'PROM', 'PREVIA', 'PREECLAMPSIA','OBSTRICAL']:
+    key  = i
+    df["col_"+str(key)]=keyword_extract(df,"diagnosis",key)
+    df["col_"+str(key)]=df["col_"+str(key)].fillna(keyword_extract(df,"indication",key))
+    df["col_"+str(key)]=df["col_"+str(key)].fillna(keyword_extract(df,"usg",key))
+    print( df["col_"+str(key)].value_counts())
+    
+    
+first_keywords = [entry.split()[0] if entry else None for entry in df['diagnosis']]
+extracted_keywords = [keyword.split("[")[1] if "[" in keyword else None for keyword in first_keywords]
+cleaned_keywords = [keyword[1:] if keyword.startswith("'") else keyword for keyword in extracted_keywords]
+cleaned_keywords = [keyword[:-1] if keyword.endswith("'") else keyword for keyword in cleaned_keywords]
+df['diagnosis_1'] = cleaned_keywords
+df['primi'] = np.where(df['diagnosis_1'].isin(['PRIMI','PRIMIGRAVIDA','PRI','PRIM','PTIMI','PRAMI']),1,0)
+df['diagnosis_1']= df['diagnosis_1'].replace("nan',",np.NaN)
+df['diagnosis_1']= df['diagnosis_1'].replace(" ",np.NaN)
+df['check_dia'] = np.where((df['primi']==1) | (df['diagnosis_1']== 'ELDERLY'),np.NaN, df['diagnosis_1'])
+
+def extract_alphabets(string):
+    alphabet_counts = {}
+    if pd.notna(string):
+        for char in string:
+            if char.isalpha():
+                alphabet_counts[char] = 0
+        for i in range(len(string) - 1):
+            if string[i].isalpha() and string[i + 1].isdigit():
+                alphabet_counts[string[i]] = int(string[i + 1])
+    return alphabet_counts
+
+# Extract unique alphabets and their counts
+unique_alphabets = set()
+for value in df['check_dia']:
+    alphabet_counts = extract_alphabets(value)
+    unique_alphabets.update(alphabet_counts.keys())
+
+unique_alphabets
+for alphabet in unique_alphabets:
+    df[alphabet] = ''
+# Fill in the columns with values following each alphabet
+for i, value in enumerate(df['check_dia']):
+    alphabet_counts = extract_alphabets(value)
+    for alphabet, count in alphabet_counts.items():
+        df.at[i, alphabet] = count
+df[['A','G','L','D','P']] = df[['A','G','L','D','P']].replace('',0)
+df = df.rename(columns={
+
+    'G': 'gravida',
+    'A' :'abortion',
+    'L' :'living_children',
+    'D' :'dead_children',
+    'P' : 'parity'
+
+})
+
+df['col_FETAL DISTRESS']=df['col_FETAL DISTRESS'].fillna(df['col_FETAL'])
+df['col_FETAL DISTRESS']=df['col_FETAL DISTRESS'].fillna(df['col_DISTRESS'])
+df['col_OLIGOHYDRAMNIOUS']=df['col_OLIGOHYDRAMNIOUS'].fillna(df['col_OLIGO'])
+
+
+col_drop=['col_DISTRESS', 'col_FETAL', 'diagnosis_1','check_dia','col_OLIGO']
+df.drop(columns=col_drop,inplace=True)
