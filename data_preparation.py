@@ -146,6 +146,10 @@ def f_global_data_pref(filename,columns):
     # Drop duplicate rows (if any) to have unique 'SL.NO' - 'weight' pairs
     df_10 = gw_df.drop_duplicates()
 
+    a= df_[~df_['SL.NO'].isna()][['SL.NO','ELECTIVE/EMERGENCY']].drop_duplicates()
+    a['rnk']= a.groupby(['SL.NO'])['ELECTIVE/EMERGENCY'].rank()
+    df_11 =  a[a['rnk']==1].drop(columns='rnk')
+
     # create target variable
     # target_df = df_[~((df_['METHOD-VD/CS'].isnull()) | (df_['METHOD-VD/CS']=='nan'))][['SL.NO','METHOD-VD/CS']].drop_duplicates()
     # target_df['METHOD-VD/CS']= np.where((target_df['METHOD-VD/CS']!='LSCS'),'NVD',target_df['METHOD-VD/CS'])
@@ -153,8 +157,9 @@ def f_global_data_pref(filename,columns):
     target_df['METHOD-VD/CS']= np.where((target_df['METHOD-VD/CS']!='LSCS'),'NVD',target_df['METHOD-VD/CS'])
     target_df = target_df.dropna().drop_duplicates()
 
+
     # merge all dataframes:
-    dataset=[df_1,df_2,df_3,df_4,df_5,df_6,df_7,df_8,df_9,df_10,target_df]
+    dataset=[df_1,df_2,df_3,df_4,df_5,df_6,df_7,df_8,df_9,df_10,df_11,target_df]
     # Merge all DataFrames on 'SL.NO'
 
     merged_df = reduce(lambda left, right: pd.merge(left, right, on='SL.NO', how='left'), dataset)
@@ -176,7 +181,8 @@ def f_global_data_pref(filename,columns):
         '         HHH':'hhh',
         '           B -G':'bg',
         'GA':'ga_weeks',
-        'METHOD-VD/CS':'delivery_mode'
+        'METHOD-VD/CS':'delivery_mode',
+        'ELECTIVE/EMERGENCY':'elective_emergency'
     })
     merged_df['filename'] = filename
     print(merged_df.shape, merged_df['sl_no'].nunique())
