@@ -255,3 +255,6 @@ str_date = str(date.today())
 print('output dataset shape: ',df_delivery.shape)
 print(folder_path+'/res/'+'df_delivery_mode_'+str_date+'.csv')
 df_delivery.to_csv(folder_path+'/res'+'df_delivery_mode_'+str_date+'.csv',index=False)
+#%%
+
+#%%

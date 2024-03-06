@@ -5,8 +5,14 @@ pd.set_option('display.max_rows', 100)
 import numpy as np
 import random
 import re
+import os
+from datetime import date
 
-df = pd.read_csv('resdf_delivery_mode_2024-02-23.csv')
+str_date = str(date.today())
+
+folder_path = os.getcwd()
+# df = pd.read_csv('resdf_delivery_mode_2024-02-23.csv')
+df = pd.read_csv(folder_path+'/res'+'df_delivery_mode_'+str_date+'.csv')
 df = df[df.elective_emergency != 'EMERGENCY']
 
 df['prvs_lscs'] = df['indication'].str.contains('LSCS', case=False, na=False).astype(int)
@@ -223,6 +229,7 @@ df['cervix_numerical']=df['cervix_numerical'].replace({'2838 12':'normal','32 17
 pattern = r'FHR-(\d+)'
 import re
 # Function to extract FHR value from a string
+
 def extract_fhr(column_value):
     # Convert non-string values to string
     if not isinstance(column_value, str):
@@ -246,3 +253,5 @@ df.drop(columns=[ 'nan','Extracted_String_A.F.I', 'A.F.I_upd','Extracted_String_
 
 print(folder_path+'/res/'+'cl_df_delivery_mode_'+str_date+'.csv')
 df.to_csv(folder_path+'/res'+'cl_df_delivery_mode_'+str_date+'.csv',index=False)
+
+#%%
